@@ -2,8 +2,9 @@
 """
 compbine_datasets.py: merge multiple csvs
 
-This script creates a new dataset that is an inner merge of an arbitrary number
-of csvs using any common columns.
+This script creates a new dataset by merging an arbitrary number of csvs using
+any common columns. Merge is left by default, but can be set with the --merge
+option. 
 """
 
 import argparse
@@ -29,6 +30,9 @@ def parse_args():
                         default=io.TextIOWrapper(
                             sys.stdout.buffer, encoding=ENCODE_OUT)
                         )
+    parser.add_argument('--merge',
+                        choices=['left', 'right', 'outer', 'inner'],
+                        default='left')
     verbosity = parser.add_mutually_exclusive_group()
     verbosity.add_argument('-v', '--verbose', action='store_const',
                            const=logging.DEBUG, default=logging.INFO)
@@ -42,7 +46,7 @@ def main():
     logging.basicConfig(level=args.verbose)
     df = pd.read_csv(args.datasets[0])
     for i in args.datasets[1:]:
-        df = df.merge(pd.read_csv(i))
+        df = df.merge(pd.read_csv(i, how=args.merge))
     df.to_csv(args.outfile, index=False)
 
 
