@@ -1,53 +1,45 @@
 """
-driver.py: Driver for generic corpus
-
-This modules has two members for interacting with this corpus:
- *  `INDEX` is a tuple containing a name for each level of the corpus index
- *  `stream()` returns an iterator of 2-tuples representing each item in the
-    corpus.  The first element of this tuple is the index value for the item,
-    represented as a tuple corresponding to the name(s) in INDEX. The second
-    element is the text of the item itself.
-
-To use this driver, add the directory containing it to sys.path and import it
-as you would any other module.
-
-This generic corpus simply reads in the files from a directory located in
-`.\data\clean` relative to the location of the driver. The filepaths are used
-as the index.
+driver.py: Driver for CFR corpus
 """
 
+import csv
 import concurrent.futures
 import logging
 
 from pathlib import Path
 
-INDEX = ('filepath',)
-_DATA_DIR = Path(__file__).parent.resolve().joinpath('data', 'clean')
+INDEX = ('year', 'title', 'part')
+_INDEX = Path(__file__).parent.joinpath('data', 'index.csv')
 _ENCODING = 'utf-8'
 
 log = logging.getLogger(Path(__file__).stem)
 
 
 def _read_text(path):
-    log.info("Reading {}".format(path))
-    return (str(path),), path.read_text(encoding=_ENCODING)
+    with open(path, encoding=_ENCODING) as inf:
+        return inf.read()
 
 
-def _generate_paths(basedir):
-    for sub in basedir.iterdir():
-        try:
-            yield from _generate_paths(sub)
-        except NotADirectoryError:
-            yield sub
-
-
-def stream():
+def _lazy_map(func, *iterables):
     # Using a ThreadPoolExecutor for concurrency because IO releases the GIL.
     with concurrent.futures.ThreadPoolExecutor() as pool:
-        # Use lazy iteration so we don't unnecessarily fill up memory
         workers = []
-        for i in _generate_paths(_DATA_DIR):
-            workers.append(pool.submit(_read_text, i))
+        for args in zip(*iterables):
+            workers.append(pool.submit(func, *args))
             if len(workers) == pool._max_workers:
                 yield workers.pop(0).result()
         yield from (i.result() for i in workers)
+
+
+def stream():
+    current_year = None
+    with _INDEX.open() as inf:
+        reader = csv.reader(inf)
+        next(reader)  # discard header
+        index, paths = zip(*((tuple(i[:3]), i[3]) for i in reader))
+        # Use lazy iteration so we don't unnecessarily fill up memory
+        for i in zip(index, _lazy_map(_read_text, paths)):
+            if i[0][0] != current_year:
+                current_year = i[0][0]
+                log.info("Processing {}".format(current_year))
+            yield i

@@ -1,10 +1,6 @@
 # Corpus
 
-*Official QuantGov Corpora*
+This branch contains the CFR Corpus, which serves the CFR from from 1997, using a combination of year, title, and part as the index. The source for this data is the GPO Bulk html from https://www.gpo.gov/fdsys/bulkdata/CFR. Some titles are included for 1996.
 
-This repository is for those who would like to create new datasets using the QuantGov platform. If you would like to find data that has been produced using the QuantGov platform, please visit http://www.quantgov.org/data.
-
-This repository contains all official QuantGov corpora, with each corpus stored in its own branch. The `master` branch of this repository is the Generic Corpus, which serves all files in the data/clean folder, with the file path as the index. Scripts for wordcount and regulatory restriction count are included, however, only the wordcount is included in the data/metadata.csv by default. See the `makefile` for more details.
-
-For more information about QuantGov see http://www.quantgov.org. Technical documentation for the QuantGov platform is provided at http://docs.quantgov.org.
+This corpus requires the CFR Databank, available from https://s3.amazonaws.com/quantgov-databanks/cfr/cfr.zip.
 
