@@ -46,7 +46,7 @@ def main():
     logging.basicConfig(level=args.verbose)
     df = pd.read_csv(args.datasets[0])
     for i in args.datasets[1:]:
-        df = df.merge(pd.read_csv(i, how=args.merge))
+        df = df.merge(pd.read_csv(i), how=args.merge)
     df.to_csv(args.outfile, index=False)
 
 
