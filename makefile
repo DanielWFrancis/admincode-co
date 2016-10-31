@@ -19,7 +19,7 @@ python $^ -o $@ $(VERBOSE_FLAG)
 endef
 
 # List all the csv files you want as part of the metadata here
-METADATA = data/wordcount.csv
+METADATA = data/wordcount.csv data/restrictions.csv data/agencies.csv
 
 data/metadata.csv: scripts/combine_datasets.py $(METADATA)
 	$(py)
@@ -30,8 +30,24 @@ data/wordcount.csv: scripts/count_words.py driver.py
 data/restrictions.csv: scripts/count_restrictions.py driver.py
 	$(py)
 
+data/agencies.csv: scripts/extract_agencies.py data/downloaded
+	$(py)
+
 scripts/count_restrictions.py: scripts/count_matches.py
 	$(lib)
 
-driver.py: data/clean
+driver.py: data/downloaded
 	$(lib)
+
+data/downloaded: scripts/download.py
+	$(py)
+
+extracts: data/metadata.csv
+	rm -rf $@
+	mkdir $@
+	$(eval DATE=$(shell python -c "import datetime; print(str(datetime.datetime.now()).split()[0])"))
+	python -m zipfile -c $(@)/ecfr_$(DATE).zip $^
+	python -c "import pandas as pd; pd.read_csv('$^', index_col=['title', 'part']).groupby('agency').sum().to_csv('$@/ecfr_by_agency_$(DATE).csv')"
+	python -c "import pandas as pd; pd.read_csv('$^', index_col=['title', 'part']).sum().to_csv('$@/ecfr_totals_$(DATE).csv')"
+
+.PHONY: data/downloaded extracts

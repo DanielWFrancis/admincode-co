@@ -1,53 +1,39 @@
 """
-driver.py: Driver for generic corpus
-
-This modules has two members for interacting with this corpus:
- *  `INDEX` is a tuple containing a name for each level of the corpus index
- *  `stream()` returns an iterator of 2-tuples representing each item in the
-    corpus.  The first element of this tuple is the index value for the item,
-    represented as a tuple corresponding to the name(s) in INDEX. The second
-    element is the text of the item itself.
-
-To use this driver, add the directory containing it to sys.path and import it
-as you would any other module.
-
-This generic corpus simply reads in the files from a directory located in
-`.\data\clean` relative to the location of the driver. The filepaths are used
-as the index.
+driver.py: Driver for ecfr corpus
 """
 
-import concurrent.futures
+import collections
 import logging
+
+import lxml.etree
 
 from pathlib import Path
 
-INDEX = ('filepath',)
-_DATA_DIR = Path(__file__).parent.resolve().joinpath('data', 'clean')
+INDEX = ('title', 'part')
+_DATA_DIR = Path(__file__).parent.resolve().joinpath('data', 'downloaded')
 _ENCODING = 'utf-8'
 
 log = logging.getLogger(Path(__file__).stem)
 
 
-def _read_text(path):
-    log.info("Reading {}".format(path))
-    return (str(path),), path.read_text(encoding=_ENCODING)
+def parse_parts(path):
+    root = lxml.etree.parse(path).getroot()
+    text = collections.defaultdict(list)
+    part_elements = (i for i in root.iter()
+                     if i.get('TYPE') == 'PART'
+                     and i.get('N').isdigit())
+    for part_element in part_elements:
+        text[int(part_element.get('N'))].append(
+            lxml.etree.tounicode(part_element, method='text').strip())
 
-
-def _generate_paths(basedir):
-    for sub in basedir.iterdir():
-        try:
-            yield from _generate_paths(sub)
-        except NotADirectoryError:
-            yield sub
+    for part, texts in sorted(text.items(), key=lambda x: x[0]):
+        yield part, '\n'.join(texts)
 
 
 def stream():
-    # Using a ThreadPoolExecutor for concurrency because IO releases the GIL.
-    with concurrent.futures.ThreadPoolExecutor() as pool:
-        # Use lazy iteration so we don't unnecessarily fill up memory
-        workers = []
-        for i in _generate_paths(_DATA_DIR):
-            workers.append(pool.submit(_read_text, i))
-            if len(workers) == pool._max_workers:
-                yield workers.pop(0).result()
-        yield from (i.result() for i in workers)
+    for titledir in _DATA_DIR.iterdir():
+        title = int(titledir.stem)
+        log.info("Processing Title {}".format(title))
+        last = sorted(str(i) for i in titledir.iterdir())[-1]
+        for part, text in parse_parts(last):
+            yield (title, part), text
