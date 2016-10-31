@@ -1,53 +1,80 @@
 """
-driver.py: Driver for generic corpus
-
-This modules has two members for interacting with this corpus:
- *  `INDEX` is a tuple containing a name for each level of the corpus index
- *  `stream()` returns an iterator of 2-tuples representing each item in the
-    corpus.  The first element of this tuple is the index value for the item,
-    represented as a tuple corresponding to the name(s) in INDEX. The second
-    element is the text of the item itself.
-
-To use this driver, add the directory containing it to sys.path and import it
-as you would any other module.
-
-This generic corpus simply reads in the files from a directory located in
-`.\data\clean` relative to the location of the driver. The filepaths are used
-as the index.
+driver.py: Driver for the federal register corpus
 """
 
-import concurrent.futures
 import logging
+import multiprocessing.pool
+import itertools
+import functools
+import zipfile
+
+import lxml.etree
 
 from pathlib import Path
 
-INDEX = ('filepath',)
-_DATA_DIR = Path(__file__).parent.resolve().joinpath('data', 'clean')
+INDEX = ('year', 'month', 'day', 'doctype', 'number')
+_DATA_DIR = Path(__file__).parent.resolve().joinpath('data', 'zipped')
 _ENCODING = 'utf-8'
 
 log = logging.getLogger(Path(__file__).stem)
 
 
-def _read_text(path):
-    log.info("Reading {}".format(path))
-    return (str(path),), path.read_text(encoding=_ENCODING)
+def _gen_from_xml(zf, doctypes, xml, name):
+    to_return = []
+    year, month, day = (int(i) for i in name[:-4].split('-')[-3:])
+    tree = lxml.etree.parse(zf.open(name))
+    method = 'xml' if xml else 'text'
+    for doctype in doctypes:
+        number = 1
+        tag = doctype.upper()
+        docs = (i for i in tree.iter() if i.tag == tag)
+        for doc in docs:
+            to_return.append(
+                ((year, month, day, doctype, number),
+                 lxml.etree.tounicode(doc, method=method, with_tail=False))
+            )
+            number += 1
+    return to_return
 
 
-def _generate_paths(basedir):
-    for sub in basedir.iterdir():
-        try:
-            yield from _generate_paths(sub)
-        except NotADirectoryError:
-            yield sub
+def _gen_from_zipfile(path, doctypes, xml):
+    log.info("Processing {}".format(path.stem))
+    zf = zipfile.ZipFile(str(path))
+    reader = functools.partial(_gen_from_xml, zf, doctypes, xml)
+    max_workers = (multiprocessing.cpu_count() or 1) * 5
+    with multiprocessing.pool.ThreadPool(max_workers) as pool:
+        yield from itertools.chain.from_iterable(
+            pool.imap(reader, sorted(zf.namelist()))
+        )
 
 
-def stream():
-    # Using a ThreadPoolExecutor for concurrency because IO releases the GIL.
-    with concurrent.futures.ThreadPoolExecutor() as pool:
-        # Use lazy iteration so we don't unnecessarily fill up memory
-        workers = []
-        for i in _generate_paths(_DATA_DIR):
-            workers.append(pool.submit(_read_text, i))
-            if len(workers) == pool._max_workers:
-                yield workers.pop(0).result()
-        yield from (i.result() for i in workers)
+def _validate_doctypes(doctypes):
+    valid = 'rule', 'prorule', 'notice', 'presdocu'
+    if doctypes is None:
+        doctypes = 'rule', 'prorule', 'notice', 'presdocu'
+    elif isinstance(doctypes, str):
+        doctypes = (doctypes,)
+    if any(i not in valid for i in doctypes):
+        raise ValueError('Valid doctypes are "rule", "prorule", "notice", and '
+                         '"presdocu"')
+    return doctypes
+
+
+def stream(doctypes=None, xml=False):
+    """
+    Stream documents from this corpus
+
+    Arguments:
+    * doctypes: None, or a sequence containing one or more document types to
+      stream. None streams all document types. Valid doctypes are:
+      - 'rule': Rules
+      - 'prorule': Proposed rules
+      - 'notice': Notices
+      - 'presdocu': Presidential Documents
+
+    * xml: if True, return full xml of documents, otherwise, extract text
+    """
+    doctypes = _validate_doctypes(doctypes)
+    for zippath in sorted(_DATA_DIR.iterdir()):
+        yield from _gen_from_zipfile(zippath, doctypes, xml)
+

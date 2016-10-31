@@ -1,10 +1,7 @@
 # Corpus
 
-*Official QuantGov Corpora*
+This branch holds the Federal Register corpus, which serves documents from the Federal Register from 2000-on, using the bulk xml version from https://www.gpo.gov/fdsys/bulkdata/FR.
 
-This repository is for those who would like to create new datasets using the QuantGov platform. If you would like to find data that has been produced using the QuantGov platform, please visit http://www.quantgov.org/data.
+The index is a combination of year, month, day, the type of document, and the index for that type of document for that day. This means the 31st notice in the Federal Register on July 5, 2004 would have the index `(2004, 7, 5, 'notice' 31)`.
 
-This repository contains all official QuantGov corpora, with each corpus stored in its own branch. The `master` branch of this repository is the Generic Corpus, which serves all files in the data/clean folder, with the file path as the index. Scripts for wordcount and regulatory restriction count are included, however, only the wordcount is included in the data/metadata.csv by default. See the `makefile` for more details.
-
-For more information about QuantGov see http://www.quantgov.org. Technical documentation for the QuantGov platform is provided at http://docs.quantgov.org.
-
+This corpus's `stream()` function takes as an argument a sequence of document types to be served. By default all types are served.
