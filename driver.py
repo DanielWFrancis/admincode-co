@@ -21,7 +21,7 @@ import logging
 
 from pathlib import Path
 
-INDEX = ('filepath',)
+INDEX = ('id',)
 _DATA_DIR = Path(__file__).parent.resolve().joinpath('data', 'clean')
 _ENCODING = 'utf-8'
 
@@ -30,15 +30,7 @@ log = logging.getLogger(Path(__file__).stem)
 
 def _read_text(path):
     log.info("Reading {}".format(path))
-    return (str(path),), path.read_text(encoding=_ENCODING)
-
-
-def _generate_paths(basedir):
-    for sub in basedir.iterdir():
-        try:
-            yield from _generate_paths(sub)
-        except NotADirectoryError:
-            yield sub
+    return (path.stem,), path.read_text(encoding=_ENCODING)
 
 
 def stream():
@@ -46,7 +38,7 @@ def stream():
     with concurrent.futures.ThreadPoolExecutor() as pool:
         # Use lazy iteration so we don't unnecessarily fill up memory
         workers = []
-        for i in _generate_paths(_DATA_DIR):
+        for i in _DATA_DIR.iterdir():
             workers.append(pool.submit(_read_text, i))
             if len(workers) == pool._max_workers:
                 yield workers.pop(0).result()

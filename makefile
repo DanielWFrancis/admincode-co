@@ -19,7 +19,7 @@ python $^ -o $@ $(VERBOSE_FLAG)
 endef
 
 # List all the csv files you want as part of the metadata here
-METADATA = data/wordcount.csv
+METADATA = data/index.csv data/wordcount.csv data/restrictions.csv
 
 data/metadata.csv: scripts/combine_datasets.py $(METADATA)
 	$(py)
@@ -35,3 +35,8 @@ scripts/count_restrictions.py: scripts/count_matches.py
 
 driver.py: data/clean
 	$(lib)
+
+data/index.csv: data/clean
+
+data/clean: scripts/download.py
+	$(py) --index_path data/index.csv
