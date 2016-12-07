@@ -21,16 +21,19 @@ import logging
 
 from pathlib import Path
 
-INDEX = ('filepath',)
+INDEX = ('date','version','agency','title')
 _DATA_DIR = Path(__file__).parent.resolve().joinpath('data', 'clean')
-_ENCODING = 'utf-8'
+_ENCODING = 'ISO-8859-1'
 
 log = logging.getLogger(Path(__file__).stem)
 
 
 def _read_text(path):
     log.info("Reading {}".format(path))
-    return (str(path),), path.read_text(encoding=_ENCODING)
+    if path.stem != ".DS_Store":
+        agency = path.stem.split('__')[0].split('_')[-1:]
+        title, version, date = path.stem.split('__')
+        return ((date, version, agency, title), path.read_text(encoding=_ENCODING))
 
 
 def _generate_paths(basedir):
@@ -47,7 +50,10 @@ def stream():
         # Use lazy iteration so we don't unnecessarily fill up memory
         workers = []
         for i in _generate_paths(_DATA_DIR):
-            workers.append(pool.submit(_read_text, i))
-            if len(workers) == pool._max_workers:
-                yield workers.pop(0).result()
+            if i.stem != ".DS_Store":
+                workers.append(pool.submit(_read_text, i))
+                if len(workers) == pool._max_workers:
+                    yield workers.pop(0).result()
         yield from (i.result() for i in workers)
+
+#print("done!")

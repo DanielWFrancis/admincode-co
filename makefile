@@ -1,3 +1,4 @@
+# prep: data/clean data/metadata.csv driver.py
 VERBOSE_FLAG=-v # Set to empty for less info or to -q for quiet
 
 # Canned recipe for targets that only need to have their timestamps updated
@@ -18,8 +19,9 @@ define py
 python $^ -o $@ $(VERBOSE_FLAG)
 endef
 
-# List all the csv files you want as part of the metadata here
-METADATA = data/wordcount.csv
+METADATA = data/wordcount.csv data/restrictions.csv
+
+.PHONY: data/clean data/raw
 
 data/metadata.csv: scripts/combine_datasets.py $(METADATA)
 	$(py)
@@ -35,3 +37,19 @@ scripts/count_restrictions.py: scripts/count_matches.py
 
 driver.py: data/clean
 	$(lib)
+
+data/clean: scripts/clean.py data/raw
+	python $^ $@
+
+data/raw: scripts/download.py
+	python $^ $@
+#
+# #legislative_code/clean: scripts/download_legislative_code.py
+# #	python $^ $@
+
+
+
+
+
+# constitution/clean: scripts/download_constitution.py
+# 	python $^ $@
