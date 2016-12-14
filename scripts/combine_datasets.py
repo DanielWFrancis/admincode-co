@@ -4,7 +4,7 @@ compbine_datasets.py: merge multiple csvs
 
 This script creates a new dataset by merging an arbitrary number of csvs using
 any common columns. Merge is left by default, but can be set with the --merge
-option. 
+option.
 """
 
 import argparse
